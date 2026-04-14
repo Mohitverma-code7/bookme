@@ -14,7 +14,7 @@ Connect to `localhost:5433`, user `postgres`, password `postgres`, DB `sql_class
 
 Run schema.sql:
 ```sql
--- Create users table
+
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(255) UNIQUE NOT NULL,
@@ -22,7 +22,6 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Add user_id to seats (if not exists)
 DO $$ 
 BEGIN
     IF NOT EXISTS (
@@ -33,13 +32,12 @@ BEGIN
     END IF;
 END $$;
 
--- Ensure 20 seats (unbooked, no user)
+
 DELETE FROM seats;
 INSERT INTO seats (isbooked, name, user_id)
 SELECT 0, NULL, NULL FROM generate_series(1, 20);
 ```
 
-**Note:** Existing seats? This resets to clean state.
 
 ### 2. Install Dependencies
 ```bash

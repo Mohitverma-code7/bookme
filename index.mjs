@@ -1,5 +1,3 @@
-// DB Schema: Run schema.sql first!
-
 import express from "express";
 import pkg from "pg";
 import { dirname } from "path";
@@ -12,13 +10,12 @@ const { Pool } = pkg;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// ✅ Use Render PORT
 const port = process.env.PORT || 8080;
 
-// ✅ Use ENV secret
+
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// 🔥 FIXED DATABASE (WORKS ON RENDER)
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
@@ -26,7 +23,7 @@ const pool = new Pool({
   },
 });
 
-// ✅ DB CONNECTION TEST
+
 pool.query("SELECT NOW()")
   .then((res) => {
     console.log("✅ DATABASE CONNECTED:", res.rows[0]);
@@ -41,15 +38,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Serve frontend
+
 app.use(express.static(__dirname));
 
-// Home
+
 app.get("/", (req, res) => {
   res.sendFile(__dirname + "/index.html");
 });
 
-// Get all seats
+
 app.get("/seats", async (req, res) => {
   try {
     const result = await pool.query(`
@@ -65,7 +62,7 @@ app.get("/seats", async (req, res) => {
   }
 });
 
-// Register
+
 app.post("/register", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -93,7 +90,6 @@ app.post("/register", async (req, res) => {
   }
 });
 
-// Login
 app.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -130,7 +126,7 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// Auth middleware
+
 const auth = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
@@ -148,7 +144,7 @@ const auth = (req, res, next) => {
   }
 };
 
-// Book seat
+
 app.put("/:id", auth, async (req, res) => {
   const conn = await pool.connect();
 
@@ -191,7 +187,6 @@ app.put("/:id", auth, async (req, res) => {
   }
 });
 
-// Start server
 app.listen(port, () => {
   console.log(`🚀 Server running on port: ${port}`);
 });
