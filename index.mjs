@@ -1,33 +1,32 @@
 // DB Schema: Run schema.sql first!
-// CREATE TABLE users (id SERIAL PRIMARY KEY, username VARCHAR UNIQUE, password_hash VARCHAR, created_at TIMESTAMP DEFAULT NOW());
-// ALTER TABLE seats ADD user_id INT REFERENCES users(id);
 
 import express from "express";
-import pg from "pg";
+import pkg from "pg";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 import cors from "cors";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
+const { Pool } = pkg;
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// ✅ Use Render PORT
 const port = process.env.PORT || 8080;
-const JWT_SECRET = "bookmysecretkey-super-secret-do-not-use-in-prod";
 
-// 🔥 FIXED: DB CONFIG (MAKE SURE THIS MATCHES YOUR POSTGRES)
-const pool = new pg.Pool({
-  host: "localhost",
-  port: 5432, // ⚠️ change to 5433 ONLY if you're 100% sure postgres is running there
-  user: "postgres",
-  password: "33961",
-  database: "bookme", // ⚠️ change if your DB name is different
-  max: 20,
-  connectionTimeoutMillis: 5000,
-  idleTimeoutMillis: 30000,
+// ✅ Use ENV secret
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// 🔥 FIXED DATABASE (WORKS ON RENDER)
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false,
+  },
 });
 
-// ✅ DB CONNECTION TEST (IMPORTANT)
+// ✅ DB CONNECTION TEST
 pool.query("SELECT NOW()")
   .then((res) => {
     console.log("✅ DATABASE CONNECTED:", res.rows[0]);
@@ -41,6 +40,9 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+// Serve frontend
+app.use(express.static(__dirname));
 
 // Home
 app.get("/", (req, res) => {
@@ -189,6 +191,7 @@ app.put("/:id", auth, async (req, res) => {
   }
 });
 
+// Start server
 app.listen(port, () => {
   console.log(`🚀 Server running on port: ${port}`);
 });
