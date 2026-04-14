@@ -232,8 +232,8 @@
 
   <!-- FILTER -->
   <div class="filter-bar">
-    <button class="btn" onclick="showAll()">ALL SEATS</button>
-    <button class="btn" onclick="showBooked()">BOOKED ONLY</button>
+    <button class="btn" onclick="openLogin()">ALL SEATS</button>
+    <button class="btn" onclick="openRegister()">BOOKED ONLY</button>
   </div>
 
   <!-- LEGEND -->
@@ -248,6 +248,22 @@
 
   <table class="seats-table" id="tbl"></table>
 
+</div>
+
+<div id="loginModal" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; padding:20px; border:3px solid #111;">
+  <h3>Login</h3>
+  <input id="loginUser" placeholder="Username"><br><br>
+  <input id="loginPass" type="password" placeholder="Password"><br><br>
+  <button onclick="login()">Login</button>
+  <button onclick="closeModal()">Close</button>
+</div>
+
+<div id="registerModal" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; padding:20px; border:3px solid #111;">
+  <h3>Register</h3>
+  <input id="regUser" placeholder="Username"><br><br>
+  <input id="regPass" type="password" placeholder="Password"><br><br>
+  <button onclick="register()">Register</button>
+  <button onclick="closeModal()">Close</button>
 </div>
 
 <script>
@@ -331,6 +347,54 @@ async function bookSeat(id) {
   });
 
   loadSeats();
+}
+
+function openLogin() {
+  document.getElementById("loginModal").style.display = "block";
+}
+
+function openRegister() {
+  document.getElementById("registerModal").style.display = "block";
+}
+
+function closeModal() {
+  document.getElementById("loginModal").style.display = "none";
+  document.getElementById("registerModal").style.display = "none";
+}
+
+async function register() {
+  const username = document.getElementById("regUser").value;
+  const password = document.getElementById("regPass").value;
+
+  const res = await fetch("/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password })
+  });
+
+  const data = await res.json();
+  alert(data.message || data.error);
+}
+
+async function login() {
+  const username = document.getElementById("loginUser").value;
+  const password = document.getElementById("loginPass").value;
+
+  const res = await fetch("/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password })
+  });
+
+  const data = await res.json();
+
+  if (data.token) {
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    location.reload();
+  } else {
+    alert(data.error);
+  }
 }
 
 /* LOGOUT */
