@@ -119,14 +119,48 @@ body {
   cursor: pointer;
   background: #fff;
   transition: 0.2s;
+  position: relative; /* IMPORTANT FOR TOOLTIP */
 }
 
 .seat:hover {
-  transform: translateY(-2px);
+  transform: scale(1.05);
 }
 
 .seat.available { background: #dcfce7; }
 .seat.booked { background: #fee2e2; cursor: not-allowed; }
+
+/* ================= TOOLTIP (NEW) ================= */
+.tooltip {
+  position: absolute;
+  bottom: 110%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #111;
+  color: #fff;
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: 0.2s;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.seat:hover .tooltip {
+  opacity: 1;
+}
+
+/* arrow */
+.tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #111;
+}
 
 /* MODAL */
 .modal {
@@ -160,6 +194,7 @@ body {
 
 <div class="container">
 
+<!-- HEADER -->
 <div class="header">
   <div class="auth-section" id="authSection"></div>
 
@@ -169,12 +204,14 @@ body {
   </h1>
 </div>
 
+<!-- FILTER BUTTONS -->
 <div class="filter-bar">
   <button class="btn" onclick="showAll()">ALL SEATS</button>
   <button class="btn" onclick="showAvailable()">AVAILABLE</button>
   <button class="btn" onclick="showBooked()">BOOKED ONLY</button>
 </div>
 
+<!-- SEATS -->
 <div class="seats-table" id="tbl"></div>
 
 </div>
@@ -184,7 +221,6 @@ body {
   <div class="modal-content">
     <h3>Login</h3>
     <input id="loginUser" placeholder="Username">
-    <input id="loginEmail" placeholder="Email">   <!-- ✅ NEW -->
     <input id="loginPass" type="password" placeholder="Password">
     <button onclick="login()">Login</button>
     <button onclick="closeModal()">Close</button>
@@ -196,7 +232,6 @@ body {
   <div class="modal-content">
     <h3>Register</h3>
     <input id="regUser" placeholder="Username">
-    <input id="regEmail" placeholder="Email">   <!-- ✅ NEW -->
     <input id="regPass" type="password" placeholder="Password">
     <button onclick="register()">Register</button>
     <button onclick="closeModal()">Close</button>
@@ -245,7 +280,7 @@ async function loadSeats() {
   renderSeats(allSeats);
 }
 
-/* RENDER */
+/* ================= RENDER WITH TOOLTIP ================= */
 function renderSeats(seats) {
   const tbl = document.getElementById("tbl");
   tbl.innerHTML = "";
@@ -254,6 +289,18 @@ function renderSeats(seats) {
     const div = document.createElement("div");
     div.className = `seat ${seat.isbooked ? "booked" : "available"}`;
     div.textContent = seat.id;
+
+    // TOOLTIP
+    const tooltip = document.createElement("div");
+    tooltip.className = "tooltip";
+
+    if (seat.isbooked) {
+      tooltip.innerHTML = `Booked by: <b>${seat.username || "Unknown"}</b>`;
+    } else {
+      tooltip.innerHTML = `Available`;
+    }
+
+    div.appendChild(tooltip);
 
     if (!seat.isbooked) {
       div.onclick = () => bookSeat(seat.id);
@@ -269,14 +316,14 @@ function showAll() {
 }
 
 function showBooked() {
-  renderSeats(allSeats.filter(s => s.isbooked == 1 || s.isbooked === true));
+  renderSeats(allSeats.filter(s => s.isbooked === 1 || s.isbooked === true));
 }
 
 function showAvailable() {
-  renderSeats(allSeats.filter(s => s.isbooked == 0 || s.isbooked === false));
+  renderSeats(allSeats.filter(s => s.isbooked === 0 || s.isbooked === false));
 }
 
-/* BOOK */
+/* BOOK SEAT */
 async function bookSeat(id) {
   if (!token) return openLogin();
 
@@ -290,15 +337,14 @@ async function bookSeat(id) {
   loadSeats();
 }
 
-/* LOGIN (EMAIL ADDED) */
+/* LOGIN */
 async function login() {
   const res = await fetch("/login", {
     method: "POST",
     headers: {"Content-Type":"application/json"},
     body: JSON.stringify({
-      username: document.getElementById("loginUser").value,
-      email: document.getElementById("loginEmail").value,   // ✅ NEW
-      password: document.getElementById("loginPass").value
+      username: loginUser.value,
+      password: loginPass.value
     })
   });
 
@@ -316,34 +362,22 @@ async function login() {
   loadSeats();
 }
 
-/* REGISTER (EMAIL ADDED) */
+/* REGISTER */
 async function register() {
   const res = await fetch("/register", {
     method: "POST",
     headers: {"Content-Type":"application/json"},
     body: JSON.stringify({
-      username: document.getElementById("regUser").value,
-      email: document.getElementById("regEmail").value,   // ✅ NEW
-      password: document.getElementById("regPass").value
+      username: regUser.value,
+      password: regPass.value
     })
   });
 
   const data = await res.json();
   if (!res.ok) return alert(data.error);
 
-  // optional auto-login if backend sends token
-  token = data.token || null;
-  currentUser = data.user || null;
-
-  if (token && currentUser) {
-    localStorage.setItem("token", token);
-    localStorage.setItem("user", JSON.stringify(currentUser));
-  }
-
-  alert("Registered successfully!");
+  alert("Registered! Now login 🎉");
   closeModal();
-  updateAuthUI();
-  loadSeats();
 }
 
 /* LOGOUT */
