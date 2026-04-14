@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+
+# environment variables
+.env
+
+# logs
+logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# build/output
+dist/
+build/
+
+# editor
+.vscode/
+.idea/
+
+# coverage
+coverage/
+
+# optional lock files (ONLY if you want)
+# package-lock.json

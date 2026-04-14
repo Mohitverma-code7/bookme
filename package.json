@@ -1,17 +1,24 @@
 {
-  "name": "booking-system",
+  "name": "book-my-ticket",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Book My Ticket platform with authentication and protected booking",
+  "main": "index.mjs",
   "scripts": {
+    "start": "node index.mjs",
+    "dev": "nodemon index.mjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": ["express", "postgres", "jwt", "auth", "booking"],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.6",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.2",
     "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
   }
 }

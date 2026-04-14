@@ -1,86 +1,194 @@
-//  CREATE TABLE seats (
-//      id SERIAL PRIMARY KEY,
-//      name VARCHAR(255),
-//      isbooked INT DEFAULT 0
-//  );
-// INSERT INTO seats (isbooked)
-// SELECT 0 FROM generate_series(1, 20);
+// DB Schema: Run schema.sql first!
+// CREATE TABLE users (id SERIAL PRIMARY KEY, username VARCHAR UNIQUE, password_hash VARCHAR, created_at TIMESTAMP DEFAULT NOW());
+// ALTER TABLE seats ADD user_id INT REFERENCES users(id);
 
 import express from "express";
 import pg from "pg";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 import cors from "cors";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const port = process.env.PORT || 8080;
+const JWT_SECRET = "bookmysecretkey-super-secret-do-not-use-in-prod";
 
-// Equivalent to mongoose connection
-// Pool is nothing but group of connections
-// If you pick one connection out of the pool and release it
-// the pooler will keep that connection open for sometime to other clients to reuse
+// 🔥 FIXED: DB CONFIG (MAKE SURE THIS MATCHES YOUR POSTGRES)
 const pool = new pg.Pool({
   host: "localhost",
-  port: 5433,
+  port: 5432, // ⚠️ change to 5433 ONLY if you're 100% sure postgres is running there
   user: "postgres",
-  password: "postgres",
-  database: "sql_class_2_db",
+  password: "33961",
+  database: "bookme", // ⚠️ change if your DB name is different
   max: 20,
-  connectionTimeoutMillis: 0,
-  idleTimeoutMillis: 0,
+  connectionTimeoutMillis: 5000,
+  idleTimeoutMillis: 30000,
 });
 
-const app = new express();
-app.use(cors());
+// ✅ DB CONNECTION TEST (IMPORTANT)
+pool.query("SELECT NOW()")
+  .then((res) => {
+    console.log("✅ DATABASE CONNECTED:", res.rows[0]);
+  })
+  .catch((err) => {
+    console.error("❌ DATABASE CONNECTION FAILED:");
+    console.error(err.message);
+  });
 
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+// Home
 app.get("/", (req, res) => {
   res.sendFile(__dirname + "/index.html");
 });
-//get all seats
+
+// Get all seats
 app.get("/seats", async (req, res) => {
-  const result = await pool.query("select * from seats"); // equivalent to Seats.find() in mongoose
-  res.send(result.rows);
-});
-
-//book a seat give the seatId and your name
-
-app.put("/:id/:name", async (req, res) => {
   try {
-    const id = req.params.id;
-    const name = req.params.name;
-    // payment integration should be here
-    // verify payment
-    const conn = await pool.connect(); // pick a connection from the pool
-    //begin transaction
-    // KEEP THE TRANSACTION AS SMALL AS POSSIBLE
-    await conn.query("BEGIN");
-    //getting the row to make sure it is not booked
-    /// $1 is a variable which we are passing in the array as the second parameter of query function,
-    // Why do we use $1? -> this is to avoid SQL INJECTION
-    // (If you do ${id} directly in the query string,
-    // then it can be manipulated by the user to execute malicious SQL code)
-    const sql = "SELECT * FROM seats where id = $1 and isbooked = 0 FOR UPDATE";
-    const result = await conn.query(sql, [id]);
-
-    //if no rows found then the operation should fail can't book
-    // This shows we Do not have the current seat available for booking
-    if (result.rowCount === 0) {
-      res.send({ error: "Seat already booked" });
-      return;
-    }
-    //if we get the row, we are safe to update
-    const sqlU = "update seats set isbooked = 1, name = $2 where id = $1";
-    const updateResult = await conn.query(sqlU, [id, name]); // Again to avoid SQL INJECTION we are using $1 and $2 as placeholders
-
-    //end transaction by committing
-    await conn.query("COMMIT");
-    conn.release(); // release the connection back to the pool (so we do not keep the connection open unnecessarily)
-    res.send(updateResult);
-  } catch (ex) {
-    console.log(ex);
-    res.send(500);
+    const result = await pool.query(`
+      SELECT s.*, u.username 
+      FROM seats s 
+      LEFT JOIN users u ON s.user_id = u.id
+      ORDER BY s.id
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch seats" });
   }
 });
 
-app.listen(port, () => console.log("Server starting on port: " + port));
+// Register
+app.post("/register", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ error: "Missing username/password" });
+    }
+
+    const hash = await bcrypt.hash(password, 10);
+
+    const result = await pool.query(
+      "INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id, username",
+      [username, hash]
+    );
+
+    res.json({ message: "Registered", user: result.rows[0] });
+
+  } catch (err) {
+    if (err.code === "23505") {
+      return res.status(400).json({ error: "Username already exists" });
+    }
+
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Login
+app.post("/login", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ error: "Missing username/password" });
+    }
+
+    const result = await pool.query(
+      "SELECT * FROM users WHERE username = $1",
+      [username]
+    );
+
+    const user = result.rows[0];
+
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, username: user.username },
+      JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    res.json({
+      token,
+      user: { id: user.id, username: user.username },
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Auth middleware
+const auth = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "No token provided" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+};
+
+// Book seat
+app.put("/:id", auth, async (req, res) => {
+  const conn = await pool.connect();
+
+  try {
+    const id = parseInt(req.params.id);
+    const userId = req.user.id;
+    const username = req.user.username;
+
+    await conn.query("BEGIN");
+
+    const check = await conn.query(
+      `SELECT * FROM seats 
+       WHERE id = $1 AND isbooked = 0 
+       FOR UPDATE`,
+      [id]
+    );
+
+    if (check.rowCount === 0) {
+      await conn.query("ROLLBACK");
+      return res.json({ error: "Seat already booked" });
+    }
+
+    const update = await conn.query(
+      `UPDATE seats 
+       SET isbooked = 1, name = $3, user_id = $2 
+       WHERE id = $1`,
+      [id, userId, username]
+    );
+
+    await conn.query("COMMIT");
+
+    res.json({ message: "Booked successfully!", update: update.rowCount });
+
+  } catch (err) {
+    await conn.query("ROLLBACK");
+    console.error(err);
+    res.status(500).json({ error: "Booking failed" });
+  } finally {
+    conn.release();
+  }
+});
+
+app.listen(port, () => {
+  console.log(`🚀 Server running on port: ${port}`);
+});
