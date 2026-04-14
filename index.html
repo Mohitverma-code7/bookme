@@ -30,7 +30,7 @@ body {
 .header {
   position: relative;
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
 }
 
 .header h1 {
@@ -69,7 +69,6 @@ body {
 
 .auth-btn:hover {
   transform: translate(-2px,-2px);
-  box-shadow: 3px 3px 0 #a5b4fc;
 }
 
 .user-display {
@@ -77,6 +76,27 @@ body {
   border: 2px solid #111;
   background: #eef2ff;
   font-weight: 800;
+}
+
+/* FILTER BAR */
+.filter-bar {
+  text-align: center;
+  margin: 20px 0;
+}
+
+.btn {
+  padding: 10px 16px;
+  border: 2px solid #111;
+  background: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  margin: 0 5px;
+  box-shadow: 3px 3px 0 #a5b4fc;
+  transition: 0.2s;
+}
+
+.btn:hover {
+  transform: translate(-2px,-2px);
 }
 
 /* SEATS */
@@ -108,96 +128,30 @@ body {
 .seat.available { background: #dcfce7; }
 .seat.booked { background: #fee2e2; cursor: not-allowed; }
 
-/* ================= MODAL (IMPROVED) ================= */
-
+/* MODAL */
 .modal {
   position: fixed;
   inset: 0;
+  background: rgba(0,0,0,0.5);
   display: none;
   align-items: center;
   justify-content: center;
-  background: rgba(0,0,0,0.6);
-  backdrop-filter: blur(6px);
   z-index: 999;
 }
 
 .modal.active { display: flex; }
 
 .modal-content {
-  width: 90%;
-  max-width: 380px;
   background: #fff;
-  border: 4px solid #111;
-  padding: 30px;
-  box-shadow: 10px 10px 0 #c7d2fe;
-  text-align: center;
-  border-radius: 10px;
-}
-
-.modal-content h3 {
-  margin-bottom: 15px;
-  font-family: 'Orbitron';
+  padding: 25px;
+  border: 3px solid #111;
+  width: 300px;
 }
 
 .modal input {
   width: 100%;
-  padding: 12px;
+  padding: 10px;
   margin: 8px 0;
-  border: 2px solid #111;
-  outline: none;
-  font-weight: 600;
-}
-
-.modal input:focus {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px #c7d2fe;
-}
-
-.modal button {
-  width: 100%;
-  padding: 12px;
-  margin-top: 10px;
-  border: 2px solid #111;
-  font-weight: 800;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.modal button:hover {
-  transform: translate(-2px,-2px);
-}
-
-.primary-btn {
-  background: #6366f1;
-  color: #fff;
-}
-
-.close-btn {
-  background: #fff;
-}
-
-/* ================= RESPONSIVE ================= */
-
-@media (max-width: 768px) {
-  .seats-table {
-    grid-template-columns: repeat(4, 1fr);
-  }
-
-  .header h1 {
-    font-size: 1.8rem;
-  }
-
-  .auth-section {
-    position: static;
-    justify-content: center;
-    margin-top: 10px;
-  }
-}
-
-@media (max-width: 480px) {
-  .seats-table {
-    grid-template-columns: repeat(3, 1fr);
-  }
 }
 </style>
 </head>
@@ -216,6 +170,13 @@ body {
   </h1>
 </div>
 
+<!-- FILTER BUTTONS -->
+<div class="filter-bar">
+  <button class="btn" onclick="showAll()">ALL SEATS</button>
+  <button class="btn" onclick="showAvailable()">AVAILABLE</button>
+  <button class="btn" onclick="showBooked()">BOOKED ONLY</button>
+</div>
+
 <!-- SEATS -->
 <div class="seats-table" id="tbl"></div>
 
@@ -227,8 +188,8 @@ body {
     <h3>Login</h3>
     <input id="loginUser" placeholder="Username">
     <input id="loginPass" type="password" placeholder="Password">
-    <button class="primary-btn" onclick="login()">Login</button>
-    <button class="close-btn" onclick="closeModal()">Close</button>
+    <button onclick="login()">Login</button>
+    <button onclick="closeModal()">Close</button>
   </div>
 </div>
 
@@ -238,8 +199,8 @@ body {
     <h3>Register</h3>
     <input id="regUser" placeholder="Username">
     <input id="regPass" type="password" placeholder="Password">
-    <button class="primary-btn" onclick="register()">Register</button>
-    <button class="close-btn" onclick="closeModal()">Close</button>
+    <button onclick="register()">Register</button>
+    <button onclick="closeModal()">Close</button>
   </div>
 </div>
 
@@ -278,7 +239,7 @@ function closeModal() {
   document.getElementById("registerModal").classList.remove("active");
 }
 
-/* LOAD */
+/* LOAD SEATS */
 async function loadSeats() {
   const res = await fetch("/seats");
   allSeats = await res.json();
@@ -303,13 +264,28 @@ function renderSeats(seats) {
   });
 }
 
-/* BOOK */
+/* FILTERS */
+function showAll() {
+  renderSeats(allSeats);
+}
+
+function showBooked() {
+  renderSeats(allSeats.filter(s => s.isbooked === 1 || s.isbooked === true));
+}
+
+function showAvailable() {
+  renderSeats(allSeats.filter(s => s.isbooked === 0 || s.isbooked === false));
+}
+
+/* BOOK SEAT */
 async function bookSeat(id) {
   if (!token) return openLogin();
 
   await fetch(`/${id}`, {
     method: "PUT",
-    headers: { Authorization: `Bearer ${token}` }
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
   });
 
   loadSeats();
@@ -327,7 +303,6 @@ async function login() {
   });
 
   const data = await res.json();
-
   if (!res.ok) return alert(data.error);
 
   token = data.token;
@@ -353,7 +328,6 @@ async function register() {
   });
 
   const data = await res.json();
-
   if (!res.ok) return alert(data.error);
 
   alert("Registered! Now login 🎉");
